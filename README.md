@@ -8,5 +8,7 @@ make GOBLINT="$HOME/goblint/analyzer/goblint --conf $HOME/goblint/analyzer/conf/
 
 Usage:
 ```bash
-./witness_inject $CFLAGS --witness-yaml witness.yml --assert-fn assert file.c 
+./witness_inject $CFLAGS --witness-yaml witness.yml --assert-fn assert file.c # file.c should be exactly the same file mentioned in the witness file_name location entries
 ```
+
+Injects location and loop invariants from `witness.yml` into the source code in form of assertions.
