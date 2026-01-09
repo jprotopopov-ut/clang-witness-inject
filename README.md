@@ -1,7 +1,5 @@
 # A draft of Clang-based correctness witness injection
 
-Currently works only for location invariants.
-
 Dependencies: LLVM 22
 ```bash
 make compdb -j$(nproc)

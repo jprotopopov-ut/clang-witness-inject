@@ -3,6 +3,7 @@ BEAR ?= bear
 CC ?= clang-22
 CXX ?= clang++-22
 LLVM_CONFIG ?= llvm-config-22
+CLANG_FORMAT ?= clang-format-22
 GOBLINT ?= goblint
 
 SRC_DIR ?= src
@@ -55,6 +56,7 @@ $(BUILD_DIR)/examples/%/injected.c: EXAMPLE_DIR_NAME=$(shell dirname $@)
 $(BUILD_DIR)/examples/%/injected.c: $(BUILD_DIR)/examples/%/witness.yml $(WITNESS_INJECT)
 	cp $(EXAMPLE_DIR_NAME)/original.c $(EXAMPLE_DIR_NAME)/injected.c
 	$(PWD)/$(WITNESS_INJECT) -std=c17 --witness-yaml $< --assert-fn __WITNESS_ASSERT "$@"
+	$(CLANG_FORMAT) -i "$@"
 
 $(BUILD_DIR)/examples/%/test: $(BUILD_DIR)/examples/%/injected.c
 	$(CC) -std=c17 -include $(EXAMPLES_DIR)/assert.h $< -o "$@"

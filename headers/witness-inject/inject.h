@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <clang/AST/ASTConsumer.h>
+#include <clang/AST/ASTTypeTraits.h>
 #include <clang/Rewrite/Core/Rewriter.h>
 
 namespace witness_inject {
@@ -21,7 +22,10 @@ namespace witness_inject {
         const WitnessInjectionConfig &config;
         clang::Rewriter &rewriter;
 
-        void InjectInvariant(clang::ASTContext &, clang::FileID, const witness::Invariant &);
+        void InjectLocationInvariant(clang::ASTContext &, clang::FileID, const witness::Invariant &);
+        void InjectLoopInvariant(clang::ASTContext &, clang::FileID, const witness::Invariant &);
+        void InjectLoopInvariantAt(clang::ASTContext &, const clang::Stmt *, const witness::Invariant &);
+        void InjectInvariantAt(clang::ASTContext &, clang::SourceLocation, clang::DynTypedNode, const witness::Invariant &);
 
      public:
         explicit WitnessInjectASTConsumer(const WitnessInjectionConfig &, clang::Rewriter &);

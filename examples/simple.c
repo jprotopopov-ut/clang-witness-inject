@@ -13,7 +13,12 @@ static void *fn1(void *arg) {
 
 static void *fn2(void *arg) {
     (void) arg;
-    if (flag) value++;
+    for (;;) {
+        if (flag) {
+            value++;
+            break;
+        }
+    }
     return NULL;
 }
 
