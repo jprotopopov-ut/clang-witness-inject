@@ -58,8 +58,14 @@ namespace witness_inject {
         auto loc = sm.translateLineCol(fid, invariant.location.line, invariant.location.column);
         auto node = witness_inject::util::largestASTNodeStartingAt(ctx, loc);
         if (auto forStmt = node.get<clang::ForStmt>()) {
-            auto body = forStmt->getBody();
-            this->InjectLoopInvariantAt(ctx, body, invariant);
+            auto loc = forStmt->getRParenLoc();
+            if (forStmt->getInc()) {
+                this->rewriter.InsertText(loc, ", ");
+            }
+            this->rewriter.InsertText(loc, this->config.assertFn);
+            this->rewriter.InsertText(loc, "(");
+            this->rewriter.InsertText(loc, invariant.value);
+            this->rewriter.InsertText(loc, ")");
         } else if (auto whileStmt = node.get<clang::WhileStmt>()) {
             auto body = whileStmt->getBody();
             this->InjectLoopInvariantAt(ctx, body, invariant);
