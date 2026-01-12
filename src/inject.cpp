@@ -48,7 +48,8 @@ namespace witness_inject {
 
         auto loc = sm.translateLineCol(fid, invariant.location.line, invariant.location.column);
         auto node = witness_inject::util::largestASTNodeStartingAt(ctx, loc);
-        this->InjectInvariantAt(ctx, loc, node, invariant);
+        auto begin = clang::Lexer::GetBeginningOfToken(node.getSourceRange().getBegin(), sm, ctx.getLangOpts());
+        this->InjectInvariantAt(ctx, begin, node, invariant);
     }
 
     void WitnessInjectASTConsumer::InjectLoopInvariant(clang::ASTContext &ctx, clang::FileID fid, const witness::Invariant &invariant) {
@@ -67,21 +68,21 @@ namespace witness_inject {
             this->InjectLoopInvariantAt(ctx, body, invariant);
         }
 
-        auto end = clang::Lexer::getLocForEndOfToken(node.getSourceRange().getEnd(), 0, sm, ctx.getLangOpts());
-        this->InjectInvariantAt(ctx, end, node, invariant);
+        auto begin = clang::Lexer::GetBeginningOfToken(node.getSourceRange().getBegin(), sm, ctx.getLangOpts());
+        this->InjectInvariantAt(ctx, begin, node, invariant);
     }
 
     void WitnessInjectASTConsumer::InjectLoopInvariantAt(clang::ASTContext &ctx, const clang::Stmt *body, const witness::Invariant &invariant) {
         auto &sm = ctx.getSourceManager();
 
         if (auto seq = llvm::dyn_cast<clang::CompoundStmt>(body)) {
-            this->rewriter.InsertTextAfterToken(seq->getLBracLoc(), this->config.assertFn);
-            this->rewriter.InsertTextAfterToken(seq->getLBracLoc(), "(");
-            this->rewriter.InsertTextAfterToken(seq->getLBracLoc(), invariant.value);
-            this->rewriter.InsertTextAfterToken(seq->getLBracLoc(), "); ");
+            this->rewriter.InsertText(seq->getRBracLoc(), this->config.assertFn);
+            this->rewriter.InsertText(seq->getRBracLoc(), "(");
+            this->rewriter.InsertText(seq->getRBracLoc(), invariant.value);
+            this->rewriter.InsertText(seq->getRBracLoc(), "); ");
         } else {
-            auto begin = clang::Lexer::GetBeginningOfToken(body->getBeginLoc(), sm, ctx.getLangOpts());
-            this->InjectInvariantAt(ctx, begin, clang::DynTypedNode::create(*body), invariant);
+            auto end = clang::Lexer::getLocForEndOfToken(body->getEndLoc(), 0, sm, ctx.getLangOpts());
+            this->InjectInvariantAt(ctx, end, clang::DynTypedNode::create(*body), invariant);
         }
     }
 
@@ -91,7 +92,10 @@ namespace witness_inject {
             auto parents = ctx.getParents(node);
             bool insertSeqStmt = parents.empty() ||
                 (!parents[0].get<clang::CompoundStmt>() &&
-                !parents[0].get<clang::FunctionDecl>());
+                !parents[0].get<clang::FunctionDecl>() &&
+                !parents[0].get<clang::LabelStmt>() &&
+                !parents[0].get<clang::DefaultStmt>() &&
+                !parents[0].get<clang::CaseStmt>());
 
             if (insertSeqStmt) {
                 auto begin = clang::Lexer::GetBeginningOfToken(stmt->getBeginLoc(), sm, ctx.getLangOpts());

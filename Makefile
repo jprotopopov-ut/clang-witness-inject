@@ -14,7 +14,7 @@ BUILD_DIR ?= build
 WITNESS_INJECT ?= witness_inject
 COMPILE_COMMANDS_JSON ?= compile_commands.json
 
-CXXFLAGS ?= -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter -I$(INC_DIR)
+CXXFLAGS ?= -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter -O2 -I$(INC_DIR)
 CXXFLAGS += $(shell $(LLVM_CONFIG) --cxxflags) -MMD -MP
 
 LDFLAGS ?= -lclang-cpp

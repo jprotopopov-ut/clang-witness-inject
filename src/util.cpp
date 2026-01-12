@@ -141,7 +141,7 @@ namespace witness_inject::util {
             auto parents = ctx.getParents(node);
             climb = false;
             for (auto &P : parents) {
-                if (nodeBegin(sm, P) == beginLoc) {
+                if (nodeBegin(sm, P) == beginLoc || P.get<clang::Expr>()) {
                     node = P;
                     climb = true;
                     break;

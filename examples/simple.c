@@ -15,7 +15,7 @@ static void *fn2(void *arg) {
     (void) arg;
     for (;;) {
         if (flag) {
-            value++;
+            (value)++;
             break;
         }
     }
