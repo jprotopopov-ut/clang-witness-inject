@@ -48,7 +48,9 @@ namespace witness_inject {
 
         auto loc = sm.translateLineCol(fid, invariant.location.line, invariant.location.column);
         auto node = witness_inject::util::largestASTNodeStartingAt(ctx, loc);
-        auto begin = clang::Lexer::GetBeginningOfToken(node.getSourceRange().getBegin(), sm, ctx.getLangOpts());
+        auto begin = node.get<clang::CompoundStmt>()
+            ? loc
+            : clang::Lexer::GetBeginningOfToken(node.getSourceRange().getBegin(), sm, ctx.getLangOpts());
         this->InjectInvariantAt(ctx, begin, node, invariant);
     }
 
@@ -69,13 +71,16 @@ namespace witness_inject {
         } else if (auto whileStmt = node.get<clang::WhileStmt>()) {
             auto body = whileStmt->getBody();
             this->InjectLoopInvariantAt(ctx, body, invariant);
+
+            auto begin = clang::Lexer::GetBeginningOfToken(node.getSourceRange().getBegin(), sm, ctx.getLangOpts());
+            this->InjectInvariantAt(ctx, begin, node, invariant);
         } else if (auto doStmt = node.get<clang::DoStmt>()) {
             auto body = doStmt->getBody();
             this->InjectLoopInvariantAt(ctx, body, invariant);
-        }
 
-        auto begin = clang::Lexer::GetBeginningOfToken(node.getSourceRange().getBegin(), sm, ctx.getLangOpts());
-        this->InjectInvariantAt(ctx, begin, node, invariant);
+            auto begin = clang::Lexer::GetBeginningOfToken(node.getSourceRange().getBegin(), sm, ctx.getLangOpts());
+            this->InjectInvariantAt(ctx, begin, node, invariant);
+        }
     }
 
     void WitnessInjectASTConsumer::InjectLoopInvariantAt(clang::ASTContext &ctx, const clang::Stmt *body, const witness::Invariant &invariant) {
@@ -107,7 +112,7 @@ namespace witness_inject {
                 auto begin = clang::Lexer::GetBeginningOfToken(stmt->getBeginLoc(), sm, ctx.getLangOpts());
                 auto end = clang::Lexer::getLocForEndOfToken(stmt->getEndLoc(), 0, sm, ctx.getLangOpts());
                 this->rewriter.InsertText(begin, "{ ");
-                this->rewriter.InsertText(end, " }");
+                this->rewriter.InsertText(end, "; }");
             }
 
             this->rewriter.InsertText(loc, this->config.assertFn);
