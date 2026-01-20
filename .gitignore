@@ -1,6 +1,7 @@
 build
 witness_inject
 compile_commands.json
+compile_commands.events.json
 .clangd
 .vscode
 .cache

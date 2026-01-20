@@ -10,9 +10,12 @@ SRC_DIR ?= src
 INC_DIR ?= headers
 EXAMPLES_DIR ?= examples
 BUILD_DIR ?= build
+CLEANUP_PY ?= $(PWD)/cleanup.py
 
 WITNESS_INJECT ?= witness_inject
 COMPILE_COMMANDS_JSON ?= compile_commands.json
+
+TEST_CFLAGS ?= -std=c17
 
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter -O2 -I$(INC_DIR)
 CXXFLAGS += $(shell $(LLVM_CONFIG) --cxxflags) -MMD -MP
@@ -26,7 +29,9 @@ EXAMPLES := $(wildcard $(EXAMPLES_DIR)/*.c)
 OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 EXAMPLES_DONE := $(patsubst $(EXAMPLES_DIR)/%.c,$(BUILD_DIR)/examples/%/done,$(EXAMPLES))
 
-ARTIFACTS := $(patsubst $(EXAMPLES_DIR)/%.c,$(BUILD_DIR)/examples/%/injected.c,$(EXAMPLES))
+ARTIFACTS := $(patsubst $(EXAMPLES_DIR)/%.c,$(BUILD_DIR)/examples/%/injected.clean.c,$(EXAMPLES))
+ARTIFACTS += $(patsubst $(EXAMPLES_DIR)/%.c,$(BUILD_DIR)/examples/%/errors.json,$(EXAMPLES))
+ARTIFACTS += $(patsubst $(EXAMPLES_DIR)/%.c,$(BUILD_DIR)/examples/%/injected.c,$(EXAMPLES))
 ARTIFACTS += $(patsubst $(EXAMPLES_DIR)/%.c,$(BUILD_DIR)/examples/%/original.c,$(EXAMPLES))
 ARTIFACTS += $(patsubst $(EXAMPLES_DIR)/%.c,$(BUILD_DIR)/examples/%/witness.yml,$(EXAMPLES))
 ARTIFACTS += $(patsubst $(EXAMPLES_DIR)/%.c,$(BUILD_DIR)/examples/%/test,$(EXAMPLES))
@@ -55,11 +60,24 @@ $(BUILD_DIR)/examples/%/witness.yml: $(BUILD_DIR)/examples/%/original.c
 $(BUILD_DIR)/examples/%/injected.c: EXAMPLE_DIR_NAME=$(shell dirname $@)
 $(BUILD_DIR)/examples/%/injected.c: $(BUILD_DIR)/examples/%/witness.yml $(WITNESS_INJECT)
 	cp $(EXAMPLE_DIR_NAME)/original.c $(EXAMPLE_DIR_NAME)/injected.c
-	$(PWD)/$(WITNESS_INJECT) -std=c17 --witness-yaml $< --assert-fn __WITNESS_ASSERT "$@"
+	$(PWD)/$(WITNESS_INJECT) $(TEST_CFLAGS) --witness-yaml $< --assert-fn __WITNESS_ASSERT "$@"
 	$(CLANG_FORMAT) -i "$@"
 
-$(BUILD_DIR)/examples/%/test: $(BUILD_DIR)/examples/%/injected.c
-	$(CC) -std=c17 -include $(EXAMPLES_DIR)/assert.h $< -o "$@"
+$(BUILD_DIR)/examples/%/errors.json: EXAMPLE_DIR_NAME=$(shell dirname $@)
+$(BUILD_DIR)/examples/%/errors.json: $(BUILD_DIR)/examples/%/injected.c
+	$(CC) $(TEST_CFLAGS) -w -include $(EXAMPLES_DIR)/assert.h \
+		-fsyntax-only -fdiagnostics-format=sarif -Wno-sarif-format-unstable -ferror-limit=0 \
+		$< 2>&1 | head -n2 | jq > "$@.tmp"
+	mv "$@.tmp" "$@"
+
+$(BUILD_DIR)/examples/%/injected.clean.c: EXAMPLE_DIR_NAME=$(shell dirname $@)
+$(BUILD_DIR)/examples/%/injected.clean.c: $(BUILD_DIR)/examples/%/errors.json $(BUILD_DIR)/examples/%/injected.c
+	"$(CLEANUP_PY)" --sarif-json $< --assert-fn __WITNESS_ASSERT $(patsubst %.clean.c,%.c,$@) > "$@.tmp"
+	mv "$@.tmp" "$@"
+	$(CLANG_FORMAT) -i "$@"
+
+$(BUILD_DIR)/examples/%/test: $(BUILD_DIR)/examples/%/injected.clean.c
+	$(CC) $(TEST_CFLAGS) -include $(EXAMPLES_DIR)/assert.h $< -o "$@"
 
 $(BUILD_DIR)/examples/%/done: $(BUILD_DIR)/examples/%/test
 	$<
