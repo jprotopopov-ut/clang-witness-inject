@@ -62,7 +62,8 @@ class ErroneousSegmentRemoval:
         skip_segments = self._skipped_segments.get(filepath, dict())
         while index < len(file_map.content):
             if index in skip_segments:
-                index = skip_segments[index] + 1
+                index = skip_segments[index]
+                out.write('((void) 0 /* Skipped invalid assertion */)')
                 continue
             out.write(file_map.content[index])
             index += 1
