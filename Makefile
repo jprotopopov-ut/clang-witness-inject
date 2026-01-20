@@ -10,7 +10,7 @@ SRC_DIR ?= src
 INC_DIR ?= headers
 EXAMPLES_DIR ?= examples
 BUILD_DIR ?= build
-CLEANUP_PY ?= $(PWD)/cleanup.py
+SKIP_INVALID_ASSERTIONS ?= $(PWD)/skip_invalid_assertions.py
 
 WITNESS_INJECT ?= witness_inject
 COMPILE_COMMANDS_JSON ?= compile_commands.json
@@ -72,7 +72,7 @@ $(BUILD_DIR)/examples/%/errors.json: $(BUILD_DIR)/examples/%/injected.c
 
 $(BUILD_DIR)/examples/%/injected.clean.c: EXAMPLE_DIR_NAME=$(shell dirname $@)
 $(BUILD_DIR)/examples/%/injected.clean.c: $(BUILD_DIR)/examples/%/errors.json $(BUILD_DIR)/examples/%/injected.c
-	"$(CLEANUP_PY)" --sarif-json $< --assert-fn __WITNESS_ASSERT $(patsubst %.clean.c,%.c,$@) > "$@.tmp"
+	"$(SKIP_INVALID_ASSERTIONS)" --sarif-json $< --assert-fn __WITNESS_ASSERT $(patsubst %.clean.c,%.c,$@) > "$@.tmp"
 	mv "$@.tmp" "$@"
 	$(CLANG_FORMAT) -i "$@"
 
