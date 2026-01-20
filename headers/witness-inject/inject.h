@@ -26,6 +26,7 @@ namespace witness_inject {
         void InjectLoopInvariant(clang::ASTContext &, clang::FileID, const witness::Invariant &);
         void InjectLoopInvariantAt(clang::ASTContext &, const clang::Stmt *, const witness::Invariant &);
         void InjectInvariantAt(clang::ASTContext &, clang::SourceLocation, clang::DynTypedNode, const witness::Invariant &);
+        void InjectLocation(clang::ASTContext &, clang::SourceLocation, const witness::Location &);
 
      public:
         explicit WitnessInjectASTConsumer(const WitnessInjectionConfig &, clang::Rewriter &);

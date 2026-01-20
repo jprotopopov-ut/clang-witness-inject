@@ -12,6 +12,7 @@
 #include <clang/AST/ParentMapContext.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
+#include <string>
 
 namespace witness_inject {
 
@@ -66,6 +67,7 @@ namespace witness_inject {
             }
             this->rewriter.InsertText(loc, this->config.assertFn);
             this->rewriter.InsertText(loc, "(");
+            this->InjectLocation(ctx, loc, invariant.location);
             this->rewriter.InsertText(loc, invariant.value);
             this->rewriter.InsertText(loc, ")");
         } else if (auto whileStmt = node.get<clang::WhileStmt>()) {
@@ -89,6 +91,7 @@ namespace witness_inject {
         if (auto seq = llvm::dyn_cast<clang::CompoundStmt>(body)) {
             this->rewriter.InsertText(seq->getRBracLoc(), this->config.assertFn);
             this->rewriter.InsertText(seq->getRBracLoc(), "(");
+            this->InjectLocation(ctx, seq->getRBracLoc(), invariant.location);
             this->rewriter.InsertText(seq->getRBracLoc(), invariant.value);
             this->rewriter.InsertText(seq->getRBracLoc(), "); ");
         } else {
@@ -117,14 +120,24 @@ namespace witness_inject {
 
             this->rewriter.InsertText(loc, this->config.assertFn);
             this->rewriter.InsertText(loc, "(");
+            this->InjectLocation(ctx, loc, invariant.location);
             this->rewriter.InsertText(loc, invariant.value);
             this->rewriter.InsertText(loc, "); ");
         } else if (auto decl = node.get<clang::Decl>()) {
             auto begin = clang::Lexer::GetBeginningOfToken(decl->getBeginLoc(), sm, ctx.getLangOpts());
             this->rewriter.InsertText(loc, this->config.assertFn);
             this->rewriter.InsertText(begin, "(");
+            this->InjectLocation(ctx, loc, invariant.location);
             this->rewriter.InsertText(begin, invariant.value);
             this->rewriter.InsertText(begin, "); ");
         }
+    }
+
+    void WitnessInjectASTConsumer::InjectLocation(clang::ASTContext &, clang::SourceLocation loc, const witness::Location &location) {
+        this->rewriter.InsertText(loc, "/* line=");
+        this->rewriter.InsertText(loc, std::to_string(location.line));
+        this->rewriter.InsertText(loc, ", column=");
+        this->rewriter.InsertText(loc, std::to_string(location.column));
+        this->rewriter.InsertText(loc, " */ ");
     }
 }
