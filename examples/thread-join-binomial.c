@@ -49,7 +49,7 @@ void *thread(void *arg) {
 }
 
 int main() {
-  threads_total = rand() % 128;
+  threads_total = rand() % 128 + 1;
   assume_abort_if_not(threads_total >= 1);
 
   tids = malloc(threads_total * sizeof(pthread_t));
