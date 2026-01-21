@@ -49,6 +49,10 @@ namespace witness_inject {
 
         auto loc = sm.translateLineCol(fid, invariant.location.line, invariant.location.column);
         auto node = witness_inject::util::largestASTNodeStartingAt(ctx, loc);
+        if (node.get<clang::CaseStmt>() ||
+            node.get<clang::DefaultStmt>()) {
+            return;
+        }
         auto begin = node.get<clang::CompoundStmt>()
             ? loc
             : clang::Lexer::GetBeginningOfToken(node.getSourceRange().getBegin(), sm, ctx.getLangOpts());
