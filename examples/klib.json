@@ -1,0 +1,4 @@
+{
+    "goblint_conf": "%ROOT%/conf/large-program.json",
+    "run_cmd": "%EXE% %ROOT%/examples/klib.c 8 8"
+}

@@ -1,0 +1,5 @@
+{
+    "goblint_conf": "%ROOT%/conf/large-program.json",
+    "cc_ldflags": ["-lpcre", "-llzma", "-lz"],
+    "run_cmd": "%EXE% --workers=8 --parallel 'pthread_mutex_lock.*' %ROOT%/examples"
+}

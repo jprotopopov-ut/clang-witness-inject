@@ -30,13 +30,13 @@ OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 
 EXAMPLES := $(wildcard $(EXAMPLES_DIR)/*.c)
 EXAMPLES_NAMES := $(patsubst $(EXAMPLES_DIR)/%.c,%,$(EXAMPLES))
-EXAMPLES_EXE := $(foreach x,$(EXAMPLES_NAMES),$(BUILD_DIR)/test/$(x)/$(x))
+EXAMPLES_DONE := $(foreach x,$(EXAMPLES_NAMES),$(BUILD_DIR)/test/$(x)/$(x).done)
 
 all: $(WITNESS_INJECT)
 
 $(foreach EXAMPLE,$(EXAMPLES_NAMES),\
 	$(eval \
-		$(BUILD_DIR)/test/$(EXAMPLE)/$(EXAMPLE): $(EXAMPLES_DIR)/$(EXAMPLE).c $(RUN_TEST) examples/generic.json $(WITNESS_INJECT); \
+		$(BUILD_DIR)/test/$(EXAMPLE)/$(EXAMPLE).done: $(EXAMPLES_DIR)/$(EXAMPLE).c $(RUN_TEST) examples/generic.json $(WITNESS_INJECT); \
 			mkdir -p $(BUILD_DIR)/test ; \
 			$(RUN_TEST) --generic-conf examples/generic.json \
 				--cc $(TEST_CC) \
@@ -44,7 +44,8 @@ $(foreach EXAMPLE,$(EXAMPLES_NAMES),\
 				--goblint $(GOBLINT) \
 				--witness-inject $(shell realpath $(WITNESS_INJECT)) \
 				--clang-format $(CLANG_FORMAT) \
-				$(EXAMPLES_DIR)/$(EXAMPLE).c))
+				$(EXAMPLES_DIR)/$(EXAMPLE).c && \
+			touch "$$@"))
 
 $(WITNESS_INJECT): $(OBJS)
 	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
@@ -55,7 +56,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 
 -include $(OBJS:.o=.d)
 
-test: $(EXAMPLES_EXE)
+test: $(EXAMPLES_DONE)
 
 compdb:
 	$(BEAR) --output "$(COMPILE_COMMANDS_JSON)" -- $(MAKE) -B
