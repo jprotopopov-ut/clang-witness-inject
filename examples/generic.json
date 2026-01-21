@@ -1,5 +1,6 @@
 {
     "cc_cflags": ["-std=c17"],
+    "cc_ldflags": [],
     "goblint_conf": "%ROOT%/conf/medium-program.json",
     "assert_fn": "__WITNESS_ASSERT",
     "assert_cflags": ["-include", "%ROOT%/examples/assert.h"],

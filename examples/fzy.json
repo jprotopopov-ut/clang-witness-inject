@@ -1,0 +1,4 @@
+{
+    "goblint_conf": "%ROOT%/conf/large-program.json",
+    "run_cmd": "find . -type f | %EXE% -j 8 -e log"
+}
