@@ -1,7 +1,7 @@
 {
     "cc_cflags": ["-std=c17"],
     "cc_ldflags": [],
-    "goblint_conf": "%ROOT%/conf/medium-program.json",
+    "goblint_conf": "%ROOT%/conf/very-precise.json",
     "assert_fn": "__WITNESS_ASSERT",
     "assert_cflags": ["-include", "%ROOT%/examples/assert.h"],
     "sarif_cflags": ["-w", "-fsyntax-only", "-fdiagnostics-format=sarif", "-Wno-sarif-format-unstable", "-ferror-limit=0"],
