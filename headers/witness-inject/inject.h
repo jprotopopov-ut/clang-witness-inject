@@ -15,6 +15,7 @@ namespace witness_inject {
     struct WitnessInjectionConfig {
         const std::vector<witness_inject::witness::Entry> &witness;
         std::string assertFn{"assert"};
+        bool skipSwitchcases{false};
     };
 
     class WitnessInjectASTConsumer : public clang::ASTConsumer {

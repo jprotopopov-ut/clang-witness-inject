@@ -106,6 +106,7 @@ def inject_witness(logger: logging.Logger, *, witness_inject_cmd: str, cc_cflags
         *substitute_vars_multi(cc_cflags, BASE_VARS),
         '--witness-yaml', str(witness_filepath),
         '--assert-fn', assert_fn,
+        '--skip-switch-cases',
         str(injected_filepath)
     ]
     logger.info('%s', shlex.join(witness_inject_argv))

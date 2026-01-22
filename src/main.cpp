@@ -27,6 +27,7 @@ using namespace witness_inject;
 static llvm::cl::OptionCategory ToolCat("witness-inject");
 static llvm::cl::opt<std::string> WitnessYamlPath("witness-yaml", llvm::cl::desc("Witness YAML file"), llvm::cl::Required, llvm::cl::cat(ToolCat));
 static llvm::cl::opt<std::string> AssertFn("assert-fn", llvm::cl::desc("Assert function"), llvm::cl::Optional, llvm::cl::cat(ToolCat), llvm::cl::init("assert"));
+static llvm::cl::opt<bool> SkipSwitchCases("skip-switch-cases", llvm::cl::desc("Skip invariants attached to case and default labels in switch statement"), llvm::cl::Optional, llvm::cl::cat(ToolCat), llvm::cl::init(false));
 
 static llvm::cl::list<std::string> ClangArgs(llvm::cl::Sink);
 
@@ -57,6 +58,7 @@ int main(int argc, const char **argv) {
     
     return Tool.run(new WitnessInjectActionFactory(witness_inject::WitnessInjectionConfig {
         witness,
-        AssertFn
+        AssertFn,
+        SkipSwitchCases
     }));
 }
