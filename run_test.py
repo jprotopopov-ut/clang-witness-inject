@@ -10,7 +10,7 @@ import shlex
 import logging
 import enum
 from typing import Optional, List, Dict, Iterable, Any
-from skip_invalid_assertions import ErroneousSegmentRemoval
+from strip_malformed_asserts import MalformedAssertEraseDriver
 
 SCRIPT_DIR=pathlib.Path(__file__).parent.resolve()
 BASE_VARS = {
@@ -219,18 +219,18 @@ def run_test(logger: logging.Logger, stage: TestStage, config: TestConfig):
         clang_format(logger, clang_format_cmd=config.clang_format_cmd, filepath=injected_filepath)
 
     if stage.is_stage(TestStage.AssertCleanup):
-        sarif = cc_generate_sarif(logger,
+        logger.info('Erasing up malgormed asserts in %s', injected_clean_filepath)
+        eraser = MalformedAssertEraseDriver(
             cc_cmd=config.cc_cmd,
-            cc_cflags=config.cc_cflags,
-            assert_cflags=config.assert_cflags,
-            sarif_cflags=config.sarif_cflags,
-            input_filepath=injected_filepath,
-            sarif_filepath=sarif_filepath)
-
-        segment_removal = ErroneousSegmentRemoval(assert_fn=config.assert_fn)
-        segment_removal.load_sarif(sarif)
+            sarif_cflags=substitute_vars_multi(config.sarif_cflags, BASE_VARS)
+        )
         with open(injected_clean_filepath, 'w') as injected_clean_file:
-            segment_removal.process_file(injected_filepath, injected_clean_file)
+            sarif = eraser.process_file(injected_filepath, injected_clean_file, cflags=[
+                *substitute_vars_multi(config.cc_cflags, BASE_VARS),
+                *substitute_vars_multi(config.assert_cflags, BASE_VARS)
+            ], assert_fn=config.assert_fn)
+        with open(sarif_filepath, 'w') as sarif_file:
+            json.dump(sarif, sarif_file)
 
     if stage.is_stage(TestStage.Run):
         cc_compile(logger,

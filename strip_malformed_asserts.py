@@ -4,9 +4,9 @@ import json
 import argparse
 import pathlib
 import io
-import re
+import subprocess
 import urllib.parse as urllib_parse
-from typing import Dict, Any
+from typing import Dict, Any, Iterable, Optional
 
 class FileMap:
     def __init__(self, filepath):
@@ -33,11 +33,11 @@ class FileMap:
         
         return column - 1 + sum(self._file_map[:line - 1])
 
-class ErroneousSegmentRemoval:
+class MalformedSegmentEraser:
     def __init__(self, *, assert_fn: str):
         self._assert_fn = assert_fn
         self._file_maps = dict()
-        self._skipped_segments = dict()
+        self._erase_segments = dict()
 
     def load_sarif(self, sarif: Dict[Any, Any]):
         for run in sarif.get('runs', ()):
@@ -59,11 +59,11 @@ class ErroneousSegmentRemoval:
         filepath = pathlib.Path(filepath).resolve()
         file_map = self._get_file_map(filepath)
         index = 0
-        skip_segments = self._skipped_segments.get(filepath, dict())
+        skip_segments = self._erase_segments.get(filepath, dict())
         while index < len(file_map.content):
             if index in skip_segments:
                 index = skip_segments[index]
-                out.write('((void) 0 /* Skipped invalid assertion */)')
+                out.write('((void) 0 /* Skipped malformed assertion */)')
                 continue
             out.write(file_map.content[index])
             index += 1
@@ -102,9 +102,48 @@ class ErroneousSegmentRemoval:
                         quote = None
                 end_offset += 1
             if paren_depth == 0:
-                if filepath not in self._skipped_segments:
-                    self._skipped_segments[filepath] = dict()
-                self._skipped_segments[filepath][offset] = max(self._skipped_segments[filepath].get(offset, -1), end_offset)
+                if filepath not in self._erase_segments:
+                    self._erase_segments[filepath] = dict()
+                self._erase_segments[filepath][offset] = max(self._erase_segments[filepath].get(offset, -1), end_offset)
+
+class MalformedAssertEraseDriver:
+    def __init__(self, *, cc_cmd: str, sarif_cflags: Optional[Iterable[str]]):
+        self._cc_cmd = cc_cmd
+        self._sarif_cflags = list(sarif_cflags) if sarif_cflags is not None else [
+            '-w',
+            '-fsyntax-only',
+            '-fdiagnostics-format=sarif',
+            '-Wno-sarif-format-unstable',
+            '-ferror-limit=0'
+        ]
+
+    def generate_sarif(self, filepath: pathlib.Path, *, cflags: Iterable[str]) -> Any:
+        cc_argv = [
+            self._cc_cmd,
+            *self._sarif_cflags,
+            *cflags,
+            str(filepath.resolve())
+        ]
+        sarif_proc = subprocess.Popen(
+            executable=self._cc_cmd,
+            args=cc_argv,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False
+        )
+        sarif_output = b''
+        while sarif_proc.poll() is None:
+            _, sarif_stderr = sarif_proc.communicate()
+            if sarif_stderr is not None:
+                sarif_output += sarif_stderr
+        return json.loads(sarif_output.decode().splitlines()[1])
+    
+    def process_file(self, filepath: pathlib.Path, out: io.TextIOBase, *, cflags: Iterable[str], assert_fn: str) -> Any:
+        sarif = self.generate_sarif(filepath, cflags=cflags)
+        eraser = MalformedSegmentEraser(assert_fn=assert_fn)
+        eraser.load_sarif(sarif=sarif)
+        eraser.process_file(filepath, out)
+        return sarif
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog=sys.argv[0], description='Assertion removal script')
@@ -116,6 +155,6 @@ if __name__ == '__main__':
     with open(args.sarif_json) as sarif_json_file:
         sarif_json = json.load(sarif_json_file)
 
-    range_set = ErroneousSegmentRemoval(assert_fn=args.assert_fn)
-    range_set.load_sarif(sarif_json)
-    range_set.process_file(args.prog_filepath, sys.stdout)
+    eraser = MalformedSegmentEraser(assert_fn=args.assert_fn)
+    eraser.load_sarif(sarif_json)
+    eraser.process_file(args.prog_filepath, sys.stdout)
