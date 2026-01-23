@@ -6,15 +6,20 @@ import pathlib
 import argparse
 import tempfile
 import shutil
+import shlex
+import subprocess
 import zipfile
 import logging
-import subprocess
-import shlex
+import yaml
 import aflpp_ctrl
+import run_test
+import strip_malformed_asserts
 
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 FUZZ_HARNESS_DIR = SCRIPT_DIR / 'fuzz_harness'
 EXAMPLES_DIR = SCRIPT_DIR / 'examples'
+
+NULL_LOGGER = logging.Logger('null')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog=sys.argv[0], description='AFL++ driver for SV-COMP benchmarks')
@@ -24,6 +29,10 @@ if __name__ == '__main__':
     parser.add_argument('--compile', default=False, action='store_true', help='Compile benchmark program')
     parser.add_argument('--compile-cflags', type=str, default='', help='Compilation CFLAGS')
     parser.add_argument('--compile-ldflags', type=str, default='', help='Compilation LDFLAGS')
+    parser.add_argument('--witness-inject-tool', type=str, default=str(SCRIPT_DIR / 'witness_inject'), help='Witness injection tool')
+    parser.add_argument('--witness-yaml', type=str, required=False, help='Witness yaml file')
+    parser.add_argument('--clang-cc', type=str, default='clang', help='Clang compiler')
+    parser.add_argument('--clang-format', type=str, default='clang-format', help='Clang format tool')
     parser.add_argument('--quiet', default=False, action='store_true', help='Suppress normal AFL++ output')
     parser.add_argument('--input-seed', type=str, required=False, help='Initial input seed for fuzzing')
     parser.add_argument('--harness-timeout', type=int, default=5000, help='Fuzz harness timeout in microseconds')
@@ -65,14 +74,54 @@ if __name__ == '__main__':
             misc_dir_path.mkdir()
 
             if args.compile:
-                logger.info('Compiling %s', args.program)
+                program_source = args.program
+                if args.witness_yaml:
+                    injected_source = misc_dir_path / 'program.injected.c'
+                    injected_clean_source = misc_dir_path / 'program.injected.clean.c'
+                    witness_yaml = misc_dir_path / 'witness.yaml'
+                    sarif_json = misc_dir_path / 'errors.json'
+
+                    with open(args.witness_yaml) as input_yaml:
+                        witness_yaml_content = list(yaml.safe_load(input_yaml))
+                    for doc in witness_yaml_content:
+                        if doc.get('entry_type') == 'invariant_set' and 'content' in doc:
+                            for entry in doc['content']:
+                                if 'invariant' in entry and 'location' in entry['invariant'] and 'file_name' in entry['invariant']['location']:
+                                    entry['invariant']['location']['file_name'] = str(injected_source)
+                    with open(witness_yaml, 'w') as output_yaml:
+                        yaml.dump(witness_yaml_content, output_yaml)
+
+                    shutil.copy(program_source, injected_source)
+                    run_test.inject_witness(NULL_LOGGER,
+                        witness_inject_cmd=args.witness_inject_tool,
+                        cc_cflags=shlex.split(args.compile_cflags),
+                        assert_fn='__WITNESS_ASSERT',
+                        witness_filepath=witness_yaml,
+                        injected_filepath=injected_source)
+                    run_test.clang_format(NULL_LOGGER,
+                        clang_format_cmd=args.clang_format,
+                        filepath=injected_source)
+                    
+                    eraser = strip_malformed_asserts.MalformedAssertEraseDriver(
+                        cc_cmd=args.clang_cc,
+                        sarif_cflags=[
+                            '-w', '-fsyntax-only', '-fdiagnostics-format=sarif', '-Wno-sarif-format-unstable', '-ferror-limit=0'
+                        ]
+                    )
+                    with open(injected_clean_source, 'w') as out:
+                        eraser.process_file(injected_source, out, cflags=[
+                            *shlex.split(args.compile_cflags),
+                            '-include', str(EXAMPLES_DIR / 'assert.h')
+                        ], assert_fn='__WITNESS_ASSERT')
+                    program_source = injected_clean_source
+                logger.info('Compiling %s', program_source)
                 subprocess.check_call([
                     aflpp_dir / 'bin' / 'afl-clang-lto',
                     '-w', '-fPIC', '-DFUZZ_HARNESS_RAND_STDIN=1',
                     '-include', str(FUZZ_HARNESS_DIR / 'fuzz_harness.h'),
                     '-include', str(EXAMPLES_DIR / 'assert.h'),
                     *shlex.split(args.compile_cflags),
-                    args.program,
+                    program_source,
                     str(FUZZ_HARNESS_DIR / 'fuzz_harness.c'),
                     str(FUZZ_HARNESS_DIR / 'fuzz_harness.s'),
                     '-o', str(program_filepath),
