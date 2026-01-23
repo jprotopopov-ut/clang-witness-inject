@@ -57,7 +57,7 @@ ifneq ($(AFLPP_CC),)
 $(foreach EXAMPLE,$(EXAMPLES_NAMES),\
 	$(eval \
 		$(BUILD_DIR)/test/$(EXAMPLE)/$(EXAMPLE).afl: $(BUILD_DIR)/test/$(EXAMPLE)/$(EXAMPLE).done; \
-			$(AFLPP_CC) $(AFLPP_CFLAGS) -DFUZZ_HARNESS_RAND_STDIN=1 \
+			$(AFLPP_CC) $(AFLPP_CFLAGS) -fPIC -DFUZZ_HARNESS_RAND_STDIN=1 \
 				-include $(FUZZ_HARNESS_DIR)/fuzz_harness.h \
 				-include  $(EXAMPLES_DIR)/assert.h \
 				$(BUILD_DIR)/test/$(EXAMPLE)/$(EXAMPLE).injected.clean.c \

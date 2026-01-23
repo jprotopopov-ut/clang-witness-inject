@@ -8,17 +8,23 @@
 #include <signal.h>
 #include <sys/time.h>
 
-__attribute__((used)) int __fuzz_harness_main(int argc, char *argv[]) {
-    extern int main(int, char *[]);
+extern int (*__fuzz_harness_main_fn)(int, char *[]);
 
-    int rc = 0, override_rc = false;
-    char *override_rc_env = getenv("FUZZ_HARNESS_RC");
-    if (override_rc_env != NULL && *override_rc_env != '\0') {
-        override_rc = true;
-        rc = strtol(override_rc_env, NULL, 10);
+static _Bool __fuzz_harness_get_exit_code(int *rc) {
+    char *rc_env = getenv("FUZZ_HARNESS_RC");
+    if (rc_env != NULL && *rc_env != '\0') {
+        *rc = strtol(rc_env, NULL, 10);
+        return true;
+    } else {
+        return false;
     }
+}
 
-    int ret = main(argc, argv);
+__attribute__((used)) int __fuzz_harness_main(int argc, char *argv[]) {
+    int rc = 0;
+    _Bool override_rc = __fuzz_harness_get_exit_code(&rc);
+
+    int ret = __fuzz_harness_main_fn(argc, argv);
     return override_rc ? rc : ret;
 }
 
@@ -28,15 +34,18 @@ int __fuzz_harness_rand(void) {
     return res % (RAND_MAX + 1u);
 }
 
+static int __fuzz_harness_timeout_handler_exit_code = 0;
+
 static void __fuzz_harness_timeout_handler(int sig) {
     (void) sig;
     fprintf(stderr, "Fuzz harness terminated on timeout\n");
-    exit(0);
+    exit(__fuzz_harness_timeout_handler_exit_code);
 }
 
 __attribute__((constructor)) static void __fuzz_harness_init(void) {
     const char *timeout = getenv("FUZZ_HARNESS_TIMEOUT");
     if (timeout != NULL && *timeout != '\0') {
+        __fuzz_harness_get_exit_code(&__fuzz_harness_timeout_handler_exit_code);
         unsigned long long timeout_value = strtoull(timeout, NULL, 10);
 
         signal(SIGALRM, __fuzz_harness_timeout_handler);
