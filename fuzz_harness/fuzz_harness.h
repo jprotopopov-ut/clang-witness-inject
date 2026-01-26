@@ -6,6 +6,9 @@ extern int __fuzz_harness_rand(void);
 #define rand __fuzz_harness_rand
 #endif
 
+#define __FUZZ_HARNESS_WITNESS_ASSERT__
+_Noreturn void __fuzz_harness_assert_fail(const char *, const char *, unsigned int, const char *);
+
 // Per https://sv-comp.sosy-lab.org/2026/rules.php
 
 #if defined(__GNUC__) || defined(__clang__)

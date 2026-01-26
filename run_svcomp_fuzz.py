@@ -11,6 +11,7 @@ import subprocess
 import zipfile
 import logging
 import yaml
+import enum
 import aflpp_ctrl
 import run_test
 import strip_malformed_asserts
@@ -20,6 +21,11 @@ FUZZ_HARNESS_DIR = SCRIPT_DIR / 'fuzz_harness'
 EXAMPLES_DIR = SCRIPT_DIR / 'examples'
 
 NULL_LOGGER = logging.Logger('null')
+
+class Sanitizer(enum.Enum):
+    Disabled = 'none'
+    Address = 'asan'
+    Undefined = 'ubsan'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog=sys.argv[0], description='AFL++ driver for SV-COMP benchmarks')
@@ -33,6 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('--witness-yaml', type=str, required=False, help='Witness yaml file')
     parser.add_argument('--clang-cc', type=str, default='clang', help='Clang compiler')
     parser.add_argument('--clang-format', type=str, default='clang-format', help='Clang format tool')
+    parser.add_argument('--sanitizer', type=str, choices=[sanitizer.value for sanitizer in Sanitizer], default=Sanitizer.Disabled.value, help='S')
     parser.add_argument('--quiet', default=False, action='store_true', help='Suppress normal AFL++ output')
     parser.add_argument('--input-seed', type=str, required=False, help='Initial input seed for fuzzing')
     parser.add_argument('--harness-timeout', type=int, default=5000, help='Fuzz harness timeout in microseconds')
@@ -115,9 +122,19 @@ if __name__ == '__main__':
                         ], assert_fn='__WITNESS_ASSERT')
                     program_source = injected_clean_source
                 logger.info('Compiling %s', program_source)
+
+                sanitizer = Sanitizer(args.sanitizer)
+                env = {
+                    **os.environ
+                }
+                if sanitizer == Sanitizer.Undefined:
+                    env['AFL_USE_UBSAN'] = '1'
+                elif sanitizer == Sanitizer.Address:
+                    env['AFL_USE_ASAN'] = '1'
                 subprocess.check_call([
                     aflpp_dir / 'bin' / 'afl-clang-lto',
                     '-w', '-fPIC', '-DFUZZ_HARNESS_RAND_STDIN=1',
+                    f'-DFUZZ_HARNESS_SANITIZER_HOOK={1 if sanitizer == Sanitizer.Address else 0}',
                     '-include', str(FUZZ_HARNESS_DIR / 'fuzz_harness.h'),
                     '-include', str(EXAMPLES_DIR / 'assert.h'),
                     *shlex.split(args.compile_cflags),
@@ -127,7 +144,7 @@ if __name__ == '__main__':
                     '-o', str(program_filepath),
                     *shlex.split(args.compile_ldflags),
                     '-Wl,-e,__fuzz_harness_start'
-                ])
+                ], shell=False, env=env)
             else:
                 shutil.copy(args.program, program_filepath)
 

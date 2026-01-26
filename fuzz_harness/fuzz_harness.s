@@ -19,9 +19,6 @@ __fuzz_harness_start:
     call __libc_start_main@PLT
     hlt 
 
-.section .rodata.rel, "w"
-
 .global __fuzz_harness_main_fn
-.align 16
 __fuzz_harness_main_fn:
-    .quad main
+    jmp main@PLT

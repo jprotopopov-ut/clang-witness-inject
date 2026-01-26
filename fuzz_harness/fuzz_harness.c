@@ -7,8 +7,9 @@
 #include <pthread.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <time.h>
 
-extern int (*__fuzz_harness_main_fn)(int, char *[]);
+extern int __fuzz_harness_main_fn(int, char *[]);
 
 static _Bool __fuzz_harness_get_exit_code(int *rc) {
     char *rc_env = getenv("FUZZ_HARNESS_RC");
@@ -35,6 +36,14 @@ int __fuzz_harness_rand(void) {
 }
 
 static int __fuzz_harness_timeout_handler_exit_code = 0;
+static int __fuzz_harness_abort_handler_exit_code = 0;
+static int __fuzz_harness_witness_assert_handler_exit_code = -1;
+static int __fuzz_harness_sanitizer_death_handler_exit_code = -2;
+
+_Noreturn void __fuzz_harness_assert_fail(const char *message, const char *file, unsigned int line, const char *function) {
+    fprintf(stderr, "%s:%u: %s: Assertion `%s' failed.\n", file, line, function, message);
+    exit(__fuzz_harness_witness_assert_handler_exit_code);
+}
 
 static void __fuzz_harness_timeout_handler(int sig) {
     (void) sig;
@@ -42,7 +51,40 @@ static void __fuzz_harness_timeout_handler(int sig) {
     exit(__fuzz_harness_timeout_handler_exit_code);
 }
 
+static void __fuzz_harness_abort_handler(int sig) {
+    (void) sig;
+    fprintf(stderr, "Fuzz harness terminated on abort\n");
+    exit(__fuzz_harness_abort_handler_exit_code);
+}
+
+static __attribute__((used)) void __fuzz_harness_sanitizer_death(void) {
+    fprintf(stderr, "Fuzz harness terminated on sanitizer failure\n");
+    exit(__fuzz_harness_sanitizer_death_handler_exit_code);
+}
+
 __attribute__((constructor)) static void __fuzz_harness_init(void) {
+    const char *override_witness_assert = getenv("FUZZ_HARNESS_WITNESS_ASSERT_RC");
+    if (override_witness_assert != NULL && *override_witness_assert != '\0') {
+        __fuzz_harness_witness_assert_handler_exit_code = strtoull(override_witness_assert, NULL, 10);
+    }
+
+    const char *override_abort = getenv("FUZZ_HARNESS_ABORT_RC");
+    if (override_abort != NULL && *override_abort != '\0') {
+        __fuzz_harness_abort_handler_exit_code = strtoull(override_abort, NULL, 10);
+        signal(SIGABRT, __fuzz_harness_abort_handler);
+    }
+
+    const char *override_sanitizer_death = getenv("FUZZ_HARNESS_SANITIZER_RC");
+    if (override_sanitizer_death != NULL && *override_sanitizer_death != '\0') {
+#if FUZZ_HARNESS_SANITIZER_HOOK != 0
+        void __sanitizer_set_death_callback(void (*callback)(void));
+        __fuzz_harness_sanitizer_death_handler_exit_code = strtoull(override_sanitizer_death, NULL, 10);
+        __sanitizer_set_death_callback(__fuzz_harness_sanitizer_death);
+#else
+        fprintf(stderr, "FUZZ_HARNESS_SANITIZER_RC has no effect as fuzz harness has been compiler without sanitizer support!\n");
+#endif
+    }
+
     const char *timeout = getenv("FUZZ_HARNESS_TIMEOUT");
     if (timeout != NULL && *timeout != '\0') {
         __fuzz_harness_get_exit_code(&__fuzz_harness_timeout_handler_exit_code);
