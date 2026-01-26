@@ -129,12 +129,13 @@ if __name__ == '__main__':
                 }
                 if sanitizer == Sanitizer.Undefined:
                     env['AFL_USE_UBSAN'] = '1'
+                    env['AFL_UBSAN_VERBOSE'] = '1'
                 elif sanitizer == Sanitizer.Address:
                     env['AFL_USE_ASAN'] = '1'
                 subprocess.check_call([
                     aflpp_dir / 'bin' / 'afl-clang-lto',
                     '-w', '-fPIC', '-DFUZZ_HARNESS_RAND_STDIN=1',
-                    f'-DFUZZ_HARNESS_SANITIZER_HOOK={1 if sanitizer == Sanitizer.Address else 0}',
+                    f'-DFUZZ_HARNESS_SANITIZER_HOOK={1 if sanitizer != Sanitizer.Disabled else 0}',
                     '-include', str(FUZZ_HARNESS_DIR / 'fuzz_harness.h'),
                     '-include', str(EXAMPLES_DIR / 'assert.h'),
                     *shlex.split(args.compile_cflags),
@@ -164,7 +165,9 @@ if __name__ == '__main__':
                 executable_args=list(),
                 executable_env={
                     'FUZZ_HARNESS_RC': '0',
-                    'FUZZ_HARNESS_TIMEOUT': str(args.harness_timeout)
+                    'FUZZ_HARNESS_TIMEOUT': str(args.harness_timeout),
+                    'UBSAN_OPTIONS': 'halt_on_error=1,symbolize=0',
+                    'ASAN_OPTIONS': 'abort_on_error=1,symbolize=0'
                 },
                 input_dir=input_dir_path
             )

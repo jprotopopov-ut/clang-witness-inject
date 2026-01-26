@@ -24,6 +24,8 @@ AFLPP_CC ?=
 AFLPP_CFLAGS ?= $(TEST_CFLAGS)
 AFLPP_LDFLAGS ?=
 
+FUZZ_HARNESS_SANITIZER_HOOK ?= 0
+
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter -O2 -I$(INC_DIR)
 CXXFLAGS += $(shell $(LLVM_CONFIG) --cxxflags) -MMD -MP
 
@@ -58,7 +60,7 @@ $(foreach EXAMPLE,$(EXAMPLES_NAMES),\
 	$(eval \
 		$(BUILD_DIR)/test/$(EXAMPLE)/$(EXAMPLE).afl: $(BUILD_DIR)/test/$(EXAMPLE)/$(EXAMPLE).done; \
 			$(AFLPP_CC) $(AFLPP_CFLAGS) -fPIC -DFUZZ_HARNESS_RAND_STDIN=1 \
-				-DFUZZ_HARNESS_SANITIZER_HOOK=$(if $(AFL_USE_ASAN),1,0) \
+				-DFUZZ_HARNESS_SANITIZER_HOOK=$(FUZZ_HARNESS_SANITIZER_HOOK) \
 				-include $(FUZZ_HARNESS_DIR)/fuzz_harness.h \
 				-include  $(EXAMPLES_DIR)/assert.h \
 				$(BUILD_DIR)/test/$(EXAMPLE)/$(EXAMPLE).injected.clean.c \
