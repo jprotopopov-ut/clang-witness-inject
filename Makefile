@@ -1,9 +1,9 @@
 
 BEAR ?= bear
-CC ?= clang-22
-CXX ?= clang++-22
-LLVM_CONFIG ?= llvm-config-22
-CLANG_FORMAT ?= clang-format-22
+CC ?= clang-23
+CXX ?= clang++-23
+LLVM_CONFIG ?= llvm-config-23
+CLANG_FORMAT ?= clang-format-23
 GOBLINT ?= goblint
 
 SRC_DIR ?= src
@@ -27,10 +27,10 @@ AFLPP_LDFLAGS ?=
 FUZZ_HARNESS_SANITIZER_HOOK ?= 0
 
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter -O2 -I$(INC_DIR)
-CXXFLAGS += $(shell $(LLVM_CONFIG) --cxxflags) -MMD -MP
+CXXFLAGS += $(shell $(LLVM_CONFIG) --cxxflags) -MMD -MP -fexceptions
 
 LDFLAGS ?= -lclang-cpp
-LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --system-libs --libs all)
+LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --system-libs --libs all) -fexceptions -lstdc++
 
 SRCS := $(wildcard $(SRC_DIR)/*.cpp)
 OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
